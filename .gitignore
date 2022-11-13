@@ -1,0 +1,3 @@
+data/download/files/*
+*.pyc
+train/data.csv
