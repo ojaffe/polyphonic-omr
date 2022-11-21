@@ -1,5 +1,6 @@
 import argparse
 import os
+from itertools import zip_longest
     
 from utils import set_seed, load_config, greedy_decode
 from dataset import load_data
@@ -18,6 +19,23 @@ def save_model():
     state_dict = {'model': model_dict, 'optimizer': optimizer.state_dict()}
     torch.save(state_dict, root_model_path)
     print('Saved model')
+
+
+# Note, this accuracy metric is very different to the CTC loss
+def pred_seq_acc(seq: torch.int64, preds: torch.float32, pred_lengths: torch.int64) -> (int, int):
+    """
+    Calculate no. correct predictions, using greedy decoding
+
+    :param seq: ground truth
+    :param preds: predictions
+    :param pred_lengths: lengths of predictions
+    """
+    greedy_preds = greedy_decode(preds, pred_lengths)
+
+    zipped = [list(zip_longest(seq[idx], greedy_preds[idx])) for idx in range(len(seq))]
+    no_correct = len([1 for x in zipped for i, j in x if i == j])
+    no_total = len([1 for x in zipped for i in x])
+    return no_correct, no_total
 
 
 def train(cfg_file: str) -> None:
@@ -69,6 +87,8 @@ def train(cfg_file: str) -> None:
 
         # Train
         model.train()
+        correct_preds = 0
+        num_preds = 0
         for batch_idx, batch in enumerate(train_loader):
             image, pitch_seq, rhythm_seq = batch
             
@@ -100,18 +120,27 @@ def train(cfg_file: str) -> None:
                 train_loss = 0
 
             if (batch_idx+1) % decode_every == 0:
-                greedy_preds_pitch = greedy_decode(rhythm_pred, pred_lengths)
-                print(greedy_preds_pitch)
+                greedy_pitch_pred = greedy_decode(pitch_pred, pred_lengths)
+                print(greedy_pitch_pred)
                 print(rhythm_seq)
 
             if (batch_idx+1) % save_every == 0:
                 save_model()   
                 model_num += 1
 
+            # Accuracy
+            no_correct, no_total = pred_seq_acc(pitch_seq, pitch_pred, pred_lengths)
+            correct_preds += no_correct
+            num_preds += no_total
+
+        train_acc = correct_preds / num_preds
+        writer.add_scalar('Acc/train', train_acc, global_step)  # Might want to report this more than once per epoch
 
         # Val
         model.eval()
         val_loss = 0
+        correct_preds = 0
+        num_preds = 0
         for batch in val_loader:
             image, pitch_seq, rhythm_seq = batch
             
@@ -128,8 +157,18 @@ def train(cfg_file: str) -> None:
 
             val_loss += loss
 
-        print("Val loss: {:4.2f}".format(val_loss))
+            # Accuracy
+            no_correct, no_total = pred_seq_acc(pitch_seq, pitch_pred, pred_lengths)
+            correct_preds += no_correct
+            num_preds += no_total
+
+        val_acc = correct_preds / num_preds
+        print("Val loss: {:4.2f}\t Acc: {:.2f}".format(
+            val_loss,
+            val_acc))
+        
         writer.add_scalar('Loss/val', val_loss, global_step)
+        writer.add_scalar('Acc/val', val_acc, global_step)
 
 
     writer.close()
