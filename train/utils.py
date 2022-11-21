@@ -215,7 +215,7 @@ def greedy_decode(logits, lengths):
 
     for batch_idx in range(logits.shape[1]):
         seq = []
-        for seq_idx in range(lengths[batch_idx]):
+        for seq_idx in range(lengths[batch_idx].item()):
             seq.append(int(logits[seq_idx][batch_idx].argmax().item()))
         
         new_seq = []

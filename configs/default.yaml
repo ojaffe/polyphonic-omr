@@ -5,7 +5,7 @@ data:
   batch_size: 2
   shuffle: True
   img_height: 128
-  dataset_split: [80, 10, 10]  # train, val, test
+  dataset_split: [.8, .1, .1]  # train, val, test
   vocab_pitch_path: './vocab/rnn_pitch.txt'
   vocab_length_path: './vocab/rnn_rhythm.txt'
   max_chord_stack: 10
@@ -20,5 +20,10 @@ model:
   dropout: TODO
 training:
   random_seed: 42
+  log_dir: './log/'
   lr: 1e-4
   max_epochs: 500
+  print_training: False
+  print_every: 50  # Batches
+  decode_every: 50  # Batches
+  save_every: 500  # Batches

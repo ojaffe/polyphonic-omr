@@ -104,10 +104,10 @@ def load_data(data_cfg: dict) -> (PolyphonicDataset, PolyphonicDataset, Polyphon
     if data_cfg.get("shuffle", True):
         np.random.shuffle(indices)
 
-    train_prop, val_prop, test_prop = data_cfg.get("dataset_split", [80, 10, 10])
+    train_prop, val_prop, test_prop = data_cfg.get("dataset_split", [.8, .1, .1])
     train_split = int(np.floor(train_prop * len(dataset)))
     val_split = train_split + int(np.floor(val_prop * len(dataset)))
-    train_indices, val_indices, test_indices = indices[:train_split], indices[train_split:val_split], indices[train_split+val_split:]
+    train_indices, val_indices, test_indices = indices[:train_split], indices[train_split:val_split], indices[val_split:]
 
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=SubsetRandomSampler(train_indices), 
                                                     collate_fn=PadCollate(dataset.vocab_size_note, dataset.vocab_size_length))

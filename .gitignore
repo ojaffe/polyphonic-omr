@@ -1,3 +1,4 @@
 data/download/files/*
 *.pyc
 train/data.csv
+train/log/*

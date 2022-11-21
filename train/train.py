@@ -7,6 +7,7 @@ from model import RNNDecoder
 
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 
 # Function to save model
@@ -29,6 +30,8 @@ def train(cfg_file: str) -> None:
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print('Device: ', device)
 
+    writer = SummaryWriter(log_dir=cfg["training"].get("log_dir", './log/'))
+
     # Set the random seed
     set_seed(seed=cfg["training"].get("random_seed", 42))
 
@@ -40,8 +43,8 @@ def train(cfg_file: str) -> None:
 
     # Optimisation
     optimizer = torch.optim.Adam(model.parameters(), lr=float(cfg["training"].get("lr", 1e-4)))
-    pitch_loss = torch.nn.CTCLoss(blank=blank_val_note, zero_infinity=True)
-    length_loss = torch.nn.CTCLoss(blank=blank_val_length, zero_infinity=True)
+    pitch_loss_ctc = torch.nn.CTCLoss(blank=blank_val_note, zero_infinity=True)
+    rhythm_loss_ctc = torch.nn.CTCLoss(blank=blank_val_length, zero_infinity=True)
 
     # Initialize weights
     def init_weights(m):
@@ -51,13 +54,20 @@ def train(cfg_file: str) -> None:
     model.apply(init_weights)
 
     # Training loop
+    batch_size = cfg["data"].get("batch_size")
     max_epochs = cfg["training"].get("max_epochs", 500)
+
+    print_training = cfg["training"].get("print_training")
+    print_every = cfg["training"].get("print_every")
+    decode_every = cfg["training"].get("decode_every")
+    save_every = cfg["training"].get("save_every")
+
     for epoch in range(max_epochs):
-        print('Epoch %d...' % epoch)
+        print("Epoch {:4d}".format(epoch))
 
         train_loss = 0
 
-        # Go through training data
+        # Train
         model.train()
         for batch_idx, batch in enumerate(train_loader):
             image, pitch_seq, rhythm_seq = batch
@@ -65,32 +75,64 @@ def train(cfg_file: str) -> None:
             optimizer.zero_grad()
             pitch_pred, rhythm_pred = model(image.to(device))
 
-            input_lengths = torch.tensor([len(x) for x in pitch_seq])
+            target_lengths = torch.tensor([len(x) for x in pitch_seq])
+            pred_lengths = torch.tensor(pitch_pred.shape[0]).repeat(1, pitch_pred.shape[1]).squeeze(0)
 
             # Calculate CTC loss
-            loss = length_loss(rhythm_pred, rhythm_seq, input_lengths.clone().detach(), input_lengths.clone().detach()) + \
-                pitch_loss(pitch_pred, pitch_seq, input_lengths.clone().detach(), input_lengths.clone().detach())
+            pitch_loss = pitch_loss_ctc(pitch_pred, pitch_seq, pred_lengths, target_lengths)
+            rhythm_loss = rhythm_loss_ctc(rhythm_pred, rhythm_seq, pred_lengths, target_lengths)
+            loss = pitch_loss + rhythm_loss
 
             loss.backward()   
             optimizer.step()
             train_loss += loss.item()
+            
+            # Tensorboard
+            global_step = epoch*len(train_loader) + batch_idx
+            writer.add_scalar('Loss/train_pitch', pitch_loss, global_step)
+            writer.add_scalar('Loss/train_rhythm', rhythm_loss, global_step)
+            writer.add_scalar('Loss/train', loss, global_step)
 
-            if (batch_idx+1) % 40 == 0:
-                greedy_preds_pitch = greedy_decode(pitch_pred, input_lengths)
+            if (batch_idx+1) % print_every == 0 and print_training:
+                print("Avg Loss: {:4.2f}".format(
+                    train_loss / print_every
+                ))
+                train_loss = 0
+
+            if (batch_idx+1) % decode_every == 0:
+                greedy_preds_pitch = greedy_decode(rhythm_pred, pred_lengths)
                 print(greedy_preds_pitch)
-                print(pitch_seq)
+                print(rhythm_seq)
 
-            if (batch_idx+1) % 5 == 0:
-                # Overall training loss
-                if batch_idx == 0:
-                    print ('Training loss value at batch %d: %f' % ((batch_idx),train_loss))
-                else:
-                    print ('Training loss value at batch %d: %f' % ((batch_idx),train_loss/500))
-                train_loss = 0 
-
-            if (batch_idx+1) % 1500 == 0:
+            if (batch_idx+1) % save_every == 0:
                 save_model()   
                 model_num += 1
+
+
+        # Val
+        model.eval()
+        val_loss = 0
+        for batch in val_loader:
+            image, pitch_seq, rhythm_seq = batch
+            
+            with torch.no_grad():
+                pitch_pred, rhythm_pred = model(image.to(device))
+
+            target_lengths = torch.tensor([len(x) for x in pitch_seq])
+            pred_lengths = torch.tensor(pitch_pred.shape[0]).repeat(1, pitch_pred.shape[1]).squeeze(0)
+
+            # Calculate CTC loss
+            pitch_loss = pitch_loss_ctc(pitch_pred, pitch_seq, target_lengths, target_lengths)
+            rhythm_loss = rhythm_loss_ctc(rhythm_pred, rhythm_seq, target_lengths, target_lengths)
+            loss = pitch_loss + rhythm_loss
+
+            val_loss += loss
+
+        print("Val loss: {:4.2f}".format(val_loss))
+        writer.add_scalar('Loss/val', val_loss, global_step)
+
+
+    writer.close()
 
 
 if __name__ == "__main__":
