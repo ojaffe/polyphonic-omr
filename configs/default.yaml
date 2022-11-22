@@ -1,13 +1,13 @@
-name: default_rnn
+name: default
 data:
-  data_dir: '../data/download/files/'
+  data_dir: './data/download/files/'
   csv_out: 'data.csv'
   batch_size: 2
   shuffle: True
   img_height: 128
   dataset_split: [.8, .1, .1]  # train, val, test
-  vocab_pitch_path: './vocab/pitch.txt'
-  vocab_length_path: './vocab/rhythm.txt'
+  vocab_pitch_path: './train/vocab/pitch.txt'
+  vocab_length_path: './train/vocab/rhythm.txt'
   max_chord_stack: 10
 model:
   img_channels: 1
@@ -20,7 +20,7 @@ model:
   dropout: TODO
 training:
   random_seed: 42
-  log_dir: './log/'
+  log_dir: './train/log/'
   lr: 1e-4
   max_epochs: 500
   print_training: False
