@@ -26,9 +26,9 @@ def pred_seq_acc(seq: torch.int64, preds: torch.float32, pred_lengths: torch.int
     """
     Calculate no. correct predictions, using greedy decoding
 
-    :param seq: ground truth
-    :param preds: predictions
-    :param pred_lengths: lengths of predictions
+    seq: ground truth
+    preds: predictions
+    pred_lengths: lengths of predictions
     """
     greedy_preds = greedy_decode(preds, pred_lengths)
 
@@ -42,7 +42,7 @@ def train(cfg_file: str) -> None:
     """
     Main training function. After training, also test on test data if given.
 
-    :param cfg_file: path to configuration yaml file
+    cfg_file: path to configuration yaml file
     """
     cfg = load_config(cfg_file)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -122,7 +122,7 @@ def train(cfg_file: str) -> None:
             if (batch_idx+1) % decode_every == 0:
                 greedy_pitch_pred = greedy_decode(pitch_pred, pred_lengths)
                 print(greedy_pitch_pred)
-                print(rhythm_seq)
+                print(pitch_seq)
 
             if (batch_idx+1) % save_every == 0:
                 save_model()   
@@ -161,6 +161,8 @@ def train(cfg_file: str) -> None:
             no_correct, no_total = pred_seq_acc(pitch_seq, pitch_pred, pred_lengths)
             correct_preds += no_correct
             num_preds += no_total
+
+        val_loss /= len(val_loader)
 
         val_acc = correct_preds / num_preds
         print("Val loss: {:4.2f}\t Acc: {:.2f}".format(

@@ -12,7 +12,7 @@ import functools
 
 class MusicXML():
 
-    def __init__(self, input_file=None, output_file=None):
+    def __init__(self, input_file, output_file, gen_annotations):
 
         """
         Stores MusicXML file passed in 
@@ -21,6 +21,8 @@ class MusicXML():
         # Input/output file path (.musicxml and .semantic)
         self.input_file = input_file
         self.output_file = output_file
+        
+        self.gen_annotations = gen_annotations
 
         # Set default values for key, clef, time signature
         self.key = ''
@@ -87,7 +89,7 @@ class MusicXML():
         # when to proceed to next page (sample) while generating labels
         self.width_cutoff = self.width - margins + 1               
 
-    def write_sequences(self):
+    def write_sequences(self, sequences):
 
         """
         Outputs the sequences of this MusicXML object
@@ -95,7 +97,6 @@ class MusicXML():
         """
 
         # Read all of the sequences of a .musicxml, each page counts as one
-        sequences = self.get_sequences()
         file_num = 0
 
         fname = self.output_file.split('.semantic')[0]
@@ -193,7 +194,8 @@ class MusicXML():
 
                     # Reset polyphonic page and print if necessary
                     if self.polyphonic_page:
-                        print(self.input_file.split('\\')[-1].split('.semantic')[0] + '-' + str(page_num-1))
+                        pass
+                        #print(self.input_file.split('\\')[-1].split('.semantic')[0] + '-' + str(page_num-1))
                     self.polyphonic_page = False
 
                 # Gets the symbolic sequence of each staff in measure of first part
@@ -334,7 +336,7 @@ class MusicXML():
                             voice_lines[voice].append(cur_elem[0])
                             voice_durations[voice].append(duration)
                         
-            elif elem.tag == 'direction':       # Parse direction element (not used)
+            elif elem.tag == 'direction' and self.gen_annotations:       # Parse direction element
                 cur_elem = m.parse_direction(elem)
 
             elif elem.tag == 'forward':         # Parse forward element (used for multi voice music)

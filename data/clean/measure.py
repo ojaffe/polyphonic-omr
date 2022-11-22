@@ -1,4 +1,5 @@
 # Wrapper class for parse tree of measure element
+import re
 
 class Measure:
 
@@ -180,43 +181,33 @@ class Measure:
 
     def parse_direction(self, direction):
 
-        '''
+        """
         Reads through a direction element of a measure (unused)
         (this contains dynamics information)
 
         note: the parse tree representing the note
-        '''
+        """
 
         sequence = ['' for x in range(self.num_staves)]
 
         # Get staff of note
-        '''
         staff = 0
         for e in direction:
             if e.tag == 'staff':
                 staff = int(e.text) - 1
-        '''
+
+        pattern = re.compile("[A-Za-z.]+")
 
         # Iterate through all elements in direction obj
-        '''
         for elem in direction:
 
-            pass
-
             if elem.tag == 'direction-type':
-
-                if elem[0].tag == 'dynamics':
+                if elem[0].tag == 'dynamics' and pattern.fullmatch(elem[0][0].tag):
                     sequence[staff] += elem[0][0].tag + '-dynamic' + ' '
 
-                if elem[0].tag == 'words' and elem[0].text is not None:
+                if elem[0].tag == 'words' and elem[0].text is not None and pattern.fullmatch(elem[0].text):
                     sequence[staff] += elem[0].text + '-dynamic' + ' '
 
-            elif elem.tag == 'sound':
-
-                if 'tempo' in elem.attrib:
-                    pass # don't show tempo for now
-                    #sequence[staff] += elem.attrib['tempo'] + '-tempo' + ' '
-        '''
 
         return sequence
 

@@ -6,8 +6,8 @@ data:
   shuffle: True
   img_height: 128
   dataset_split: [.8, .1, .1]  # train, val, test
-  vocab_pitch_path: './vocab/rnn_pitch.txt'
-  vocab_length_path: './vocab/rnn_rhythm.txt'
+  vocab_pitch_path: './vocab/pitch.txt'
+  vocab_length_path: './vocab/rhythm.txt'
   max_chord_stack: 10
 model:
   img_channels: 1

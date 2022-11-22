@@ -11,7 +11,7 @@ def set_seed(seed: int):
     """
     Set the random seed for modules torch, numpy and random.
 
-    :param seed: random seed
+    seed: random seed
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -22,50 +22,26 @@ def load_config(path="configs/default.yaml") -> dict:
     """
     Loads and parses a YAML configuration file.
 
-    :param path: path to YAML configuration file
-    :return: configuration dictionary
+    path: path to YAML configuration file
+    return: configuration dictionary
     """
     with open(path, "r", encoding="utf-8") as ymlfile:
         cfg = yaml.load(ymlfile, Loader=yaml.Loader)
     return cfg
 
 
-def word_separator():
-    return '\t'
-
-def levenshtein(a,b):
-    "Computes the Levenshtein distance between a and b."
-    n, m = len(a), len(b)
-
-    if n > m:
-        a,b = b,a
-        n,m = m,n
-
-    current = range(n+1)
-    for i in range(1,m+1):
-        previous, current = current, [i]+[0]*n
-        for j in range(1,n+1):
-            add, delete = previous[j]+1, current[j-1]+1
-            change = previous[j-1]
-            if a[j-1] != b[i-1]:
-                change = change + 1
-            current[j] = min(add, delete, change)
-
-    return current[n]
-
-
 def normalize(image):
-    '''
+    """
     Makes black pixels of image take on high value, white pixels
     take on low value
-    '''
+    """
     return (255. - image)/255.
 
 
 def resize(image, height, width=None):
-    '''
+    """
     Resizes an image to desired width and height
-    '''
+    """
 
     # Have width be original width
     if width is None:
@@ -234,14 +210,3 @@ def greedy_decode(logits, lengths):
         predictions.append(new_seq)
 
     return predictions
-
-
-def edit_distance(a,b,EOS=-1,PAD=-1):
-    '''
-    Returns edit distance between two lists
-    '''
-
-    _a = [s for s in a if s != EOS and s != PAD]
-    _b = [s for s in b if s != EOS and s != PAD]
-
-    return levenshtein(_a,_b)
