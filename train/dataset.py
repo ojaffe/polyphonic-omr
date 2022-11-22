@@ -1,5 +1,6 @@
 import os
 import cv2
+import ast
 
 import pandas as pd
 import numpy as np
@@ -16,7 +17,7 @@ from utils import resize
 class PolyphonicDataset(Dataset):
     def __init__(self, data_cfg: dict):
 
-        self.data = pd.read_csv(data_cfg.get("csv_out", None), converters={'pitch': pd.eval, 'rhythm': pd.eval})
+        self.data = pd.read_csv(data_cfg.get("csv_out", None))
         self.data_len = len(self.data)
 
         self.data_cfg = data_cfg
@@ -48,6 +49,9 @@ class PolyphonicDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path, pitch_seq, rhythm_seq = self.data.iloc[idx]
+
+        pitch_seq = ast.literal_eval(pitch_seq)
+        rhythm_seq = ast.literal_eval(rhythm_seq)
 
         # Deal with alpha (transparent PNG) - POLYPHONIC DATASET IMAGES
         sample_img = cv2.imread(os.path.join(self.data_cfg.get("data_dir", None), img_path), cv2.IMREAD_UNCHANGED)
