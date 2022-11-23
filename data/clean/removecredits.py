@@ -1,6 +1,3 @@
-# Script for removing <credit> elements from MusicXMLs
-# run with python removecredits.py -input <input dir>
-
 import sys
 import os
 import argparse

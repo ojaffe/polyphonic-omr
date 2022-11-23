@@ -1,7 +1,3 @@
-# Removes the imgs that are non polyphonic, using an input list of 
-# the polyphonic files in directory
-# python removenonpolyphonic.py -poly <polyphonic list> -dir <dir of files>
-
 import os
 import argparse
 

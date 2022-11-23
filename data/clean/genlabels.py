@@ -1,8 +1,3 @@
-# Script for parsing MusicXML and generating ground truth 
-# sequence labels in desired manner. This version generates ground truth
-# sequence labels for the first line of the first part of the MusicXML file.
-# python genlabels.py -input <.musicxmls directory> -output <.semantic directory>
-
 import sys
 import os
 import argparse

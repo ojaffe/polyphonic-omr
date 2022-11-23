@@ -1,7 +1,3 @@
-# Script for removing all the sparse samples ie.
-# samples that only have rests in them
-# python removesparsesamples.py -input <input_dir with .semantic and .png>
-
 import sys
 import os
 import argparse

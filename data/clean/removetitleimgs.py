@@ -1,7 +1,3 @@
-# Script for removing all title images of dataset 
-# (ie. end with -1.png, -01.png, -001.png)
-# because they just have the song title, no music
-
 import sys
 import os
 import argparse

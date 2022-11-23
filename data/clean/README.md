@@ -13,7 +13,21 @@ Code for generating symbolic sequence labels from MuseScore files. An example is
 3. Run "Batch Convert Orig" in MuseScore on the cleaned .musicxml files to .mscz
 4. Run "Batch Convert Orig" in MuseScore on the new .mscz to .musicxml and .png
 5. Run genlabels.py to generate labels for the .musicxml files
-6. Run removetitleimgs.py, removenolabeldata.py, removenonpolyphonic.py, removesparsesamples.py to clean data (.musicxml) as needed
-7. Run gendata.py to generate the dataset
+6. Run the following to clean the data, as needed:
+-  removetitleimgs.py
+- removenolabeldata.py
+- removenonpolyphonic.py 
+- removesparsesamples.py
 
-(Note: Command line arguments for running each Python file is commented at the top of each file)
+## Commands
+python data/clean/removecredits.py -input data/download/files/
+
+python data/clean/genlabels.py -input data/download/files/ -output_seq data/download/files/ -output_vocab train/vocab/ --gen_annotations
+
+python data/clean/removetitleimgs.py -input data/download/files/
+
+python data/clean/removenolabeldata.py -imgs data/download/files/ -labels data/download/files/
+
+python data/clean/removesparsesamples.py -input data/download/files/
+
+python data/clean/removewrongres.py -input data/download/files/

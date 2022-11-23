@@ -1,6 +1,3 @@
-# Removes the imgs that have no corresponding label
-# python removenolabel.py -imgs <img dir> -labels <label dir>
-
 import os
 import argparse
 
