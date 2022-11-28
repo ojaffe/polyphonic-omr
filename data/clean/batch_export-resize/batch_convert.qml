@@ -795,6 +795,7 @@ MuseScore {
                 // if src is newer than existing write this file
                 fileExcerpt.source = targetBase + outFormats.extensions[j]
                 //if (srcModifiedTime > fileExcerpt.modifiedTime()) {
+                resultText.append("Input %1".arg(fileExcerpt.source))
                 var res = writeScore(thisScore, fileExcerpt.source, outFormats.extensions[j])
                 if (res)
                     resultText.append("%1 → %2".arg(fileExcerpt.source).arg(outFormats.extensions[j]))
@@ -877,6 +878,7 @@ MuseScore {
                     // modifiedTime() will return 0 for non-existing files
                     // if src is newer than existing write this file
                     //if (srcModifiedTime > fileScore.modifiedTime()) {
+                    resultText.append("Input %1".arg(fileFullPath))
                     var res = writeScore(thisScore, fileScore.source, outFormats.extensions[j])
                     
                     if (res)
