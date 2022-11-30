@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
 
-class RNNDecoder(torch.nn.Module):
+
+class BaselineModel(torch.nn.Module):
 
     def __init__(self, model_cfg: dict, device: str, max_chord_stack: int, num_notes: int, num_lengths: int, img_height: int):
-        super(RNNDecoder, self).__init__()
+        super(BaselineModel, self).__init__()
 
         self.device = device
         self.img_height = img_height
@@ -98,3 +100,16 @@ class RNNDecoder(torch.nn.Module):
         length_logits = self.sm(length_out)
 
         return note_logits, length_logits
+
+
+class TransformerModel(torch.nn.Module):
+
+    def __init__(self, model_cfg: dict, device: str, num_notes: int, num_lengths: int, img_height: int):
+        super(RNNModel, self).__init__()
+
+        self.device = device
+
+        self.rcnn = fasterrcnn_resnet50_fpn()
+
+    def forward(self, x):
+        pass

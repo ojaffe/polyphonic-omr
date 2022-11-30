@@ -4,7 +4,7 @@ from itertools import zip_longest
     
 from utils import set_seed, load_config, greedy_decode
 from dataset import load_data
-from model import RNNDecoder
+from model import BaselineModel
 
 import torch
 from torch.utils.data import DataLoader
@@ -56,7 +56,7 @@ def train(cfg_file: str) -> None:
     train_loader, val_loader, test_loader, blank_val_note, blank_val_length = load_data(data_cfg=cfg["data"])
 
     max_chord_stack = cfg["data"].get("max_chord_stack", 10)
-    model = RNNDecoder(cfg["model"], device, max_chord_stack, blank_val_note, blank_val_length, cfg["data"].get("img_height", 128))
+    model = BaselineModel(cfg["model"], device, max_chord_stack, blank_val_note, blank_val_length, cfg["data"].get("img_height", 128))
     model.to(device)
 
     # Optimisation
