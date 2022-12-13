@@ -3,18 +3,18 @@ Code for generating symbolic sequence labels from MuseScore files. An example is
 
 # Instructions
 1. Make sure you have MuseScore installed and locate the Plugins folder for it
-2. Drag the two batch_export folders provided by this repo to the Plugins folder
-3. Open Plugins -> Plugin Manager in MuseScore and make sure that two new plugins (Batch Convert Resize Height and Batch Convert Orig) show up
+2. Clone and install the plugin https://github.com/ojaffe/batch_export
+3. Open Plugins -> Plugin Manager in MuseScore and make sure that new plugins (Batch Convert) is enabled
 4. Run the pipeline described below
 
 ## Pipeline
-1. Run "Batch Convert Resize Height" in MuseScore on all .mscz files to .musicxml
+1. Run "Batch Convert" in MuseScore on all .mscz files to .musicxml, select "Resize Export"
 2. Run removecredits.py on the generated .musicxml files
-3. Run "Batch Convert Orig" in MuseScore on the cleaned .musicxml files to .mscz
-4. Run "Batch Convert Orig" in MuseScore on the new .mscz to .musicxml and .png
+3. Run "Batch Convert" in MuseScore on the cleaned .musicxml files to .mscz
+4. Run "Batch Convert" in MuseScore on the new .mscz to .musicxml and .png
 5. Run genlabels.py to generate labels for the .musicxml files
 6. Run the following to clean the data, as needed:
--  removetitleimgs.py
+- removetitleimgs.py
 - removenolabeldata.py
 - removenonpolyphonic.py 
 - removesparsesamples.py
