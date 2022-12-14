@@ -62,7 +62,7 @@ def make_csv(data_cfg: dict) -> None:
             num = img.split('-')[1].split('.')[0].lstrip('0')
             sem_file = id + '-' + num + '.semantic'
             if not os.path.isfile(os.path.join(data_dir, sem_file)):
-                print('ERROR')
+                print(sem_file)
                 break
 
             with open(os.path.join(data_dir, sem_file), 'r') as f_sem:

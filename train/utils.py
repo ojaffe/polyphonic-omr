@@ -78,7 +78,7 @@ def multi_decode(logits, lengths, stack_size):
         for stack_idx in range(len(seqs[0])):
             # Index based on orderingo of dimension 1 (function of batch/stack idx)
             log_idx = batch_idx + stack_idx*len(seqs)
-            for seq_idx in range(lengths[log_idx]):
+            for seq_idx in range(lengths[log_idx].item()):
                 seqs[batch_idx][stack_idx].append(int(logits[seq_idx][log_idx].argmax().item()))           
             #print(batch_idx,stack_idx,log_idx)
 
