@@ -100,16 +100,3 @@ class BaselineModel(torch.nn.Module):
         length_logits = self.sm(length_out)
 
         return note_logits, length_logits
-
-
-class TransformerModel(torch.nn.Module):
-
-    def __init__(self, model_cfg: dict, device: str, num_notes: int, num_lengths: int, img_height: int):
-        super(RNNModel, self).__init__()
-
-        self.device = device
-
-        self.rcnn = fasterrcnn_resnet50_fpn()
-
-    def forward(self, x):
-        pass
