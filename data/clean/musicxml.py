@@ -113,7 +113,7 @@ class MusicXML():
             with open(fname + '-' + str(file_num) + '.semantic', 'w') as out_file:
 
                 out_file.write('')
-                out_file.write((seq + '\n'))
+                out_file.write(seq)
                 out_file.write('')
                 out_file.close()
                 

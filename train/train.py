@@ -4,7 +4,7 @@ from itertools import zip_longest
     
 from utils import set_seed, load_config, greedy_decode
 from dataset import load_data
-from model import BaselineModel
+from model import EncoderRNN, DecoderRNN
 
 import torch
 from torch.utils.data import DataLoader
@@ -19,23 +19,6 @@ def save_model():
     state_dict = {'model': model_dict, 'optimizer': optimizer.state_dict()}
     torch.save(state_dict, root_model_path)
     print('Saved model')
-
-
-# Note, this accuracy metric is very different to the CTC loss
-def pred_seq_acc(seq: torch.int64, preds: torch.float32, pred_lengths: torch.int64) -> (int, int):
-    """
-    Calculate no. correct predictions, using greedy decoding
-
-    seq: ground truth
-    preds: predictions
-    pred_lengths: lengths of predictions
-    """
-    greedy_preds = greedy_decode(preds, pred_lengths)
-
-    zipped = [list(zip_longest(seq[idx], greedy_preds[idx])) for idx in range(len(seq))]
-    no_correct = len([1 for x in zipped for i, j in x if i == j])
-    no_total = len([1 for x in zipped for i in x])
-    return no_correct, no_total
 
 
 def train(cfg_file: str) -> None:
@@ -53,23 +36,25 @@ def train(cfg_file: str) -> None:
     # Set the random seed
     set_seed(seed=cfg["training"].get("random_seed", 42))
 
-    train_loader, val_loader, test_loader, blank_val_note, blank_val_length = load_data(data_cfg=cfg["data"])
+    train_loader, val_loader, test_loader, note2idx, idx2note, vocab_size = load_data(data_cfg=cfg["data"])
 
     max_chord_stack = cfg["data"].get("max_chord_stack", 10)
-    model = BaselineModel(cfg["model"], device, max_chord_stack, blank_val_note, blank_val_length, cfg["data"].get("img_height", 128))
-    model.to(device)
+    encoder = EncoderRNN(cfg["model"], device, cfg["data"].get("img_height", 128)).to(device)
+    decoder = DecoderRNN(cfg["model"], device, vocab_size).to(device)
 
     # Optimisation
-    optimizer = torch.optim.Adam(model.parameters(), lr=float(cfg["training"].get("lr", 1e-4)))
-    pitch_loss_ctc = torch.nn.CTCLoss(blank=blank_val_note, zero_infinity=True)
-    rhythm_loss_ctc = torch.nn.CTCLoss(blank=blank_val_length, zero_infinity=True)
+    encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=float(cfg["training"].get("lr", 1e-4)))
+    decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=float(cfg["training"].get("lr", 1e-4)))
+
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=vocab_size)
 
     # Initialize weights
     def init_weights(m):
         if isinstance(m, torch.nn.Conv2d) or isinstance(m, torch.nn.Linear):
             torch.nn.init.xavier_uniform_(m.weight)
             m.bias.data.fill_(0)
-    model.apply(init_weights)
+    encoder.apply(init_weights)
+    decoder.apply(init_weights)
 
     # Training loop
     batch_size = cfg["data"].get("batch_size")
@@ -86,94 +71,70 @@ def train(cfg_file: str) -> None:
         train_loss = 0
 
         # Train
-        model.train()
-        correct_preds = 0
-        num_preds = 0
+        encoder.train()
+        decoder.train()
         for batch_idx, batch in enumerate(train_loader):
-            image, pitch_seq, rhythm_seq = batch
+            image, tokens = batch
+            image = image.to(device)
+            tokens = tokens.to(device)
             
-            optimizer.zero_grad()
-            pitch_pred, rhythm_pred = model(image.to(device))
+            loss = 0
+            encoder_optimizer.zero_grad()
+            decoder_optimizer.zero_grad()
 
-            target_lengths = torch.tensor([len(x) for x in pitch_seq])
-            pred_lengths = torch.tensor(pitch_pred.shape[0]).repeat(1, pitch_pred.shape[1]).squeeze(0)
+            _, encoder_hidden = encoder(image)
 
-            # Calculate CTC loss
-            pitch_loss = pitch_loss_ctc(pitch_pred, pitch_seq, pred_lengths, target_lengths)
-            rhythm_loss = rhythm_loss_ctc(rhythm_pred, rhythm_seq, pred_lengths, target_lengths)
-            loss = pitch_loss + rhythm_loss
+            # Teacher forcing
+            all_logits = torch.tensor(list()).to(device)
+            target_length = len(tokens[0])
+            for interval in range(target_length):
+                tokens_sub = tokens[:, :interval+1]
+                logits = decoder(tokens_sub, encoder_hidden)
+                all_logits = torch.cat((all_logits, torch.reshape(logits, (logits.shape[0], 1, -1))), dim=1)
 
-            loss.backward()   
-            optimizer.step()
-            train_loss += loss.item()
-            
+                # Get logits of
+                loss += criterion(logits, torch.tensor([x[interval] for x in tokens]).to(device))
+
+            loss.backward()
+            encoder_optimizer.step()
+            decoder_optimizer.step()
+
             # Tensorboard
             global_step = epoch*len(train_loader) + batch_idx
-            writer.add_scalar('Loss/train_pitch', pitch_loss, global_step)
-            writer.add_scalar('Loss/train_rhythm', rhythm_loss, global_step)
             writer.add_scalar('Loss/train', loss, global_step)
 
-            if (batch_idx+1) % print_every == 0 and print_training:
-                print("Avg Loss: {:4.2f}".format(
-                    train_loss / print_every
-                ))
-                train_loss = 0
-
             if (batch_idx+1) % decode_every == 0:
-                greedy_pitch_pred = greedy_decode(pitch_pred, pred_lengths)
-                writer.add_text('Train pitch pred', greedy_pitch_pred, global_step)
-                writer.add_text('Train pitch actual', pitch_seq, global_step)
-
-            if save_every is not None and (batch_idx+1) % save_every == 0:
-                #save_model()   
-                model_num += 1
-
-            # Accuracy
-            no_correct, no_total = pred_seq_acc(pitch_seq, pitch_pred, pred_lengths)
-            correct_preds += no_correct
-            num_preds += no_total
-
-        train_acc = correct_preds / num_preds
-        writer.add_scalar('Acc/train', train_acc, global_step)  # Might want to report this more than once per epoch
+                pred_tokens = greedy_decode(all_logits[0], note2idx, idx2note)
+                writer.add_text('Train pred', ' '.join([str(x) for x in pred_tokens]), global_step)
+                writer.add_text('Train actual', ' '.join([str(x) for x in tokens[0].tolist()]), global_step)
 
         # Val
-        model.eval()
         val_loss = 0
-        correct_preds = 0
-        num_preds = 0
-        for batch in val_loader:
-            image, pitch_seq, rhythm_seq = batch
+        encoder.eval()
+        decoder.eval()
+        for batch_idx, batch in enumerate(val_loader):
+            image, tokens = batch
+            image = image.to(device)
+            tokens = tokens.to(device)
+            
             
             with torch.no_grad():
-                pitch_pred, rhythm_pred = model(image.to(device))
+                _, encoder_hidden = encoder(image)
 
-            target_lengths = torch.tensor([len(x) for x in pitch_seq])
-            pred_lengths = torch.tensor(pitch_pred.shape[0]).repeat(1, pitch_pred.shape[1]).squeeze(0)
+                # Teacher forcing
+                all_logits = torch.tensor(list()).to(device)
+                target_length = len(tokens[0])
+                for interval in range(target_length):
+                    tokens_sub = tokens[:, :interval+1]
+                    logits = decoder(tokens_sub, encoder_hidden)
+                    all_logits = torch.cat((all_logits, torch.reshape(logits, (logits.shape[0], 1, -1))), dim=1)
 
-            # Calculate CTC loss
-            pitch_loss = pitch_loss_ctc(pitch_pred, pitch_seq, target_lengths, target_lengths)
-            rhythm_loss = rhythm_loss_ctc(rhythm_pred, rhythm_seq, target_lengths, target_lengths)
-            loss = pitch_loss + rhythm_loss
-
-            val_loss += loss
-
-            # Accuracy
-            no_correct, no_total = pred_seq_acc(pitch_seq, pitch_pred, pred_lengths)
-            correct_preds += no_correct
-            num_preds += no_total
+                    # Get logits of
+                    val_loss += criterion(logits, torch.tensor([x[interval] for x in tokens]).to(device))
 
         val_loss /= len(val_loader)
 
-        val_acc = correct_preds / num_preds
-        print("Val loss: {:4.2f}\t Acc: {:.2f}".format(
-            val_loss,
-            val_acc))
-        
-        writer.add_scalar('Loss/val_pitch', pitch_loss, global_step)
-        writer.add_scalar('Loss/val_rhythm', rhythm_loss, global_step)
         writer.add_scalar('Loss/val', val_loss, global_step)
-        writer.add_scalar('Acc/val', val_acc, global_step)
-
 
     writer.close()
 

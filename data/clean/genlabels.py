@@ -19,11 +19,20 @@ if __name__ == '__main__':
     parser.add_argument('-output_seq', dest='output_seq', type=str, required=True, help='Path to the output directory to write sequences.')
     parser.add_argument('-output_vocab', dest='output_vocab', type=str, required=True, help='Path to the output directory to write vocab.')
     parser.add_argument('--gen_annotations', dest='gen_annotations', action='store_true')
+    parser.add_argument('--vocab_sos_token', dest='vocab_sos_token', action='store_true')
+    parser.add_argument('--vocab_eos_token', dest='vocab_eos_token', action='store_true')
     args = parser.parse_args()
 
-    # Track all unique tokens
-    pitch_tokens = list()
-    rhythm_tokens = list()
+    tokens = list()
+
+    # Add special tokens
+    tokens.append('<CHORD START>')
+    tokens.append('<CHORD END>')
+
+    if args.vocab_sos_token:
+        tokens.append('<SOS>')
+    if args.vocab_eos_token:
+        tokens.append('<EOS>')
 
     # For tracking number of MusicXML files read
     file_num = 0
@@ -51,39 +60,29 @@ if __name__ == '__main__':
             for seq in sequences:
                 s = seq.split(' + ')  # Each element is a series of simultaneous tokens
                 for elem in s:
-                    tokens = elem.split(' ')
+                    notes = elem.split(' ')
 
-                    for t in tokens:
-                        if 'note' in t:
-                            p = t.split('_')[0]
-                            r = 'note-' + t.split('_')[1]
-                        elif t != '\n':
-                            p = t
-                            r = t
-
-                        if p not in pitch_tokens:
-                            pitch_tokens.append(p)
-                        if r not in rhythm_tokens:
-                            rhythm_tokens.append(r)
+                    for n in notes:
+                        if 'note' in n:
+                            n_sub = n.replace('.', '')
+                            if n_sub not in tokens:
+                                tokens.append(n_sub)
+                        elif n != '\n':
+                            if n not in tokens:
+                                tokens.append(n)
         except UnicodeDecodeError: # Ignore bad MusicXML
             pass  # TODO nuke bad files
 
     # Sort vocab for readability
-    pitch_tokens.sort()
-    pitch_tokens.remove('')
-    rhythm_tokens.sort()
-    rhythm_tokens.remove('')
+    tokens.remove('')
+    tokens.remove('+')
+    tokens.sort()
 
     # Write vocab
     os.makedirs(os.path.dirname(args.output_vocab), exist_ok=True)
 
-    with open(os.path.join(args.output_vocab, "pitch.txt"), 'w') as f:
-        f.write("\n".join(map(str, pitch_tokens)))
-    with open(os.path.join(args.output_vocab, "rhythm.txt"), 'w') as f:
-        f.write("\n".join(map(str, rhythm_tokens)))
+    with open(os.path.join(args.output_vocab, "vocab.txt"), 'w') as f:
+        f.write("\n".join(map(str, tokens)))
 
     print('Num MusicXML files read:', file_num)
-    print("Unique Pitch Tokens: {:4d}\t Unique Rhythm Tokens: {:4d}".format(
-        len(pitch_tokens),
-        len(rhythm_tokens)
-    ))
+    print("Unique Tokens: {:4d}".format(len(tokens)))

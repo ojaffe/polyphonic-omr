@@ -2,10 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class BaselineModel(torch.nn.Module):
-
-    def __init__(self, model_cfg: dict, device: str, max_chord_stack: int, num_notes: int, num_lengths: int, img_height: int):
-        super(BaselineModel, self).__init__()
+class EncoderRNN(nn.Module):
+    def __init__(self, model_cfg: dict, device: str, img_height: int):
+        super(EncoderRNN, self).__init__()
 
         self.device = device
         self.img_height = img_height
@@ -13,7 +12,6 @@ class BaselineModel(torch.nn.Module):
         self.width_reduction = 1
         self.height_reduction = 1
         self.model_cfg = model_cfg
-        self.max_chord_stack = max_chord_stack  # Largest possible chord expected
 
         # Calculate width and height reduction
         for i in range(4):
@@ -46,27 +44,13 @@ class BaselineModel(torch.nn.Module):
             nn.MaxPool2d(kernel_size=(2,1), stride=(2,1))
         )
 
-
         # Recurrent block
-        rnn_hidden_units = self.model_cfg['rnn_units']
-        rnn_hidden_layers = self.model_cfg['rnn_layers']
+        rnn_hidden_units = self.model_cfg['encoder_rnn_units']
+        rnn_hidden_layers = self.model_cfg['encoder_rnn_layers']
         feature_dim = self.model_cfg['conv_filter_n'][-1] * (self.img_height / self.height_reduction)
 
         # Bidirectional RNN
-        self.r1 = nn.LSTM(int(feature_dim), hidden_size=rnn_hidden_units, num_layers=rnn_hidden_layers, dropout=0.5, bidirectional=True)
-
-        # Split embedding parameters
-        self.num_notes = num_notes
-        self.num_lengths = num_lengths
-
-        # Split embedding layers
-        self.note_emb = nn.Linear(2 * rnn_hidden_units, self.num_notes + 1)     # +1 for blank symbol
-        self.length_emb = nn.Linear(2 * rnn_hidden_units, self.num_lengths + 1) # +1 for blank symbol
-
-        # Log Softmax at end for CTC Loss (dim = vocab dimension)
-        self.sm = nn.LogSoftmax(dim=2)
-
-        print('Vocab size:', num_lengths + num_notes)
+        self.r1 = nn.RNN(int(feature_dim), hidden_size=rnn_hidden_units, num_layers=rnn_hidden_layers, dropout=0.5, bidirectional=False)
 
     def forward(self, x):
         width_reduction = self.width_reduction
@@ -84,17 +68,35 @@ class BaselineModel(torch.nn.Module):
         feature_dim = self.model_cfg['conv_filter_n'][-1] * (self.img_height // height_reduction)
         feature_width = (2*2*2*input_shape[3]) // (width_reduction)
         stack = (int(feature_width), input_shape[0], int(feature_dim))
-        features = torch.reshape(features, stack)  # -> [width, batch, features]
+        features = torch.reshape(features, stack)  # (width, batch, features)
 
         # Recurrent block
-        rnn_out, _ = self.r1(features)
+        output, hidden = self.r1(features)  # (width, batch, D*rnn_hidden_units), (D*rnn_hidden_layers, batch, rnn_hidden_units)
+        return output, hidden
 
-        # Split embeddings
-        note_out = self.note_emb(rnn_out)
-        length_out = self.length_emb(rnn_out)
 
-        # Log softmax (for CTC Loss)
-        note_logits = self.sm(note_out)
-        length_logits = self.sm(length_out)
+class DecoderRNN(nn.Module):
+    def __init__(self, model_cfg: dict, device: str, vocab_size: int):
+        super(DecoderRNN, self).__init__()
+        self.model_cfg = model_cfg
 
-        return note_logits, length_logits
+        self.hidden_size = self.model_cfg['decoder_hidden_size']
+        self.vocab_size = vocab_size
+
+        self.embedding = nn.Embedding(self.vocab_size+1, self.hidden_size)
+        self.ReLU = nn.ReLU()
+
+        self.r1 = nn.RNN(self.hidden_size, hidden_size=self.hidden_size, num_layers=self.model_cfg['encoder_rnn_layers'], dropout=0.5, bidirectional=False)
+        self.out = nn.Linear(self.hidden_size, self.vocab_size+1)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, input, encoder_hidden):
+        output = self.embedding(input)
+        output = self.ReLU(output)
+        output = torch.reshape(output, (output.shape[1], output.shape[0], -1))
+
+        _, decoder_hidden = self.r1(output, encoder_hidden)
+        last_hidden = decoder_hidden[decoder_hidden.shape[0] - 1]
+
+        logits = self.out(last_hidden)
+        return logits

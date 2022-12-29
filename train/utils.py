@@ -51,34 +51,19 @@ def resize(image, height, width=None):
     return sample_img
 
 
-def greedy_decode(logits, lengths):
+def greedy_decode(logits, note2idx, idx2note):
     """
     logits = (seq len, batch size, vocab size)
-    lengths = (batch size list where length of corresponding seq)
     return = (batch size list of lists where greedily decoded)
     """
 
-    predictions = []
-    blank_val = int(logits.shape[2]) - 1
+    eos_idx = note2idx['<EOS>']
 
-    for batch_idx in range(logits.shape[1]):
-        seq = []
-        for seq_idx in range(lengths[batch_idx].item()):
-            seq.append(int(logits[seq_idx][batch_idx].argmax().item()))
-        
-        new_seq = []
-        prev = -1
-        for s in seq:
-            # Skip blanks and repeated
-            if s == blank_val:
-                prev = -1
-                continue
-            elif s == prev:
-                continue
-
-            new_seq.append(s)
-            prev = s
-        
-        predictions.append(new_seq)
+    predictions = list()
+    for i in range(logits.shape[0]):
+        idx = torch.argmax(logits[i])
+        predictions.append(idx.item())
+        if idx == eos_idx:
+            break
 
     return predictions

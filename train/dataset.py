@@ -15,43 +15,24 @@ from utils import resize
 
 
 class PolyphonicDataset(Dataset):
-    def __init__(self, data_cfg: dict):
+    def __init__(self, data_cfg: dict, note2idx: dict, idx2note: dict, vocab_size: int):
 
         self.data = pd.read_csv(data_cfg.get("csv_out", None))
         self.data_len = len(self.data)
 
         self.data_cfg = data_cfg
-        vocab_pitch_path = data_cfg.get("vocab_pitch_path", None)
-        vocab_length_path = data_cfg.get("vocab_length_path", None)
 
-        # Load in dictionary (either note or combined one)
-        with open(vocab_pitch_path, 'r') as f:
-            words = f.read().split()
-            self.note2idx = dict()
-            self.idx2note = dict()
-            for i, word in enumerate(words):
-                self.note2idx[word] = i
-                self.idx2note[i] = word
-            self.vocab_size_note = len(self.note2idx)
-
-        # Load in length dictionary if being used 
-        with open(vocab_length_path, 'r') as f:
-            words = f.read().split()
-            self.length2idx = dict()
-            self.idx2length = dict()
-            for i, word in enumerate(words):
-                self.length2idx[word] = i
-                self.idx2length[i] = word
-            self.vocab_size_length = len(self.length2idx)
+        self.note2idx = note2idx
+        self.idx2note = idx2note
+        self.vocab_size = vocab_size
 
     def __len__(self):
         return self.data_len
 
     def __getitem__(self, idx):
-        img_path, pitch_seq, rhythm_seq = self.data.iloc[idx]
+        img_path, notes = self.data.iloc[idx]
 
-        pitch_seq = ast.literal_eval(pitch_seq)
-        rhythm_seq = ast.literal_eval(rhythm_seq)
+        notes = ast.literal_eval(notes)
 
         # Deal with alpha (transparent PNG) - POLYPHONIC DATASET IMAGES
         sample_img = cv2.imread(os.path.join(self.data_cfg.get("data_dir", None), img_path), cv2.IMREAD_UNCHANGED)
@@ -67,41 +48,46 @@ class PolyphonicDataset(Dataset):
             pass
 
         height = self.data_cfg.get("img_height", 128)
-        sample_img = resize(sample_img,height, int(float(height * sample_img.shape[1]) / sample_img.shape[0]) // 8 * 8)
+        sample_img = resize(sample_img, height, 880)
 
-        pitch_idxs = torch.tensor([self.note2idx[x] for x in pitch_seq])
-        rhythm_idxs = torch.tensor([self.length2idx[x] for x in rhythm_seq])
+        tokens = torch.tensor([self.note2idx[x] for x in notes])
 
-        return torch.tensor(sample_img, dtype=torch.float32).unsqueeze(0), pitch_idxs, rhythm_idxs
+        return torch.tensor(sample_img, dtype=torch.float32).unsqueeze(0), tokens
 
 
 class PadCollate:
-    def __init__(self, pitch_pad_idx, rhythm_pad_idx):
-        self.pitch_pad_idx = pitch_pad_idx
-        self.rhythm_pad_idx = rhythm_pad_idx
+    def __init__(self, pad_idx):
+        self.pad_idx = pad_idx
 
     def __call__(self, batch):
-        imgs, pitchs, rhythms = zip(*batch)
-
-        max_seq_length = max([len(x) for x in pitchs])
-
-        pitchs = pad_sequence(pitchs, batch_first=True, padding_value=self.pitch_pad_idx)
-        rhythms = pad_sequence(rhythms, batch_first=True, padding_value=self.rhythm_pad_idx)
+        imgs, tokens = zip(*batch)
 
         imgs = torch.stack(list(imgs), dim=0)
+        tokens = pad_sequence(tokens, batch_first=True, padding_value=self.pad_idx)
 
-        return imgs, pitchs, rhythms
+        return imgs, tokens
 
 
 def load_data(data_cfg: dict) -> (PolyphonicDataset, PolyphonicDataset, PolyphonicDataset, int, int):
+
+    # Create vocab dict
+    with open(data_cfg.get("vocab_path", None), 'r') as f:
+        words = f.read().split('\n')
+        note2idx = dict()
+        idx2note = dict()
+        for i, word in enumerate(words):
+            note2idx[word] = i
+            idx2note[i] = word
+        vocab_size = len(note2idx)
+
     batch_size = data_cfg.get("batch_size", 4)
 
     # Create dataset from cleaned data, if doesn't already exist
     csv_out = data_cfg.get("csv_out", None)
-    if not os.path.isfile(csv_out):
+    if not os.path.isfile(csv_out) or data_cfg.get("remake_csv", False):
         make_csv(data_cfg)
 
-    dataset = PolyphonicDataset(data_cfg)
+    dataset = PolyphonicDataset(data_cfg, note2idx, idx2note, vocab_size)
 
     # Create splits
     indices = list(range(len(dataset)))
@@ -114,10 +100,10 @@ def load_data(data_cfg: dict) -> (PolyphonicDataset, PolyphonicDataset, Polyphon
     train_indices, val_indices, test_indices = indices[:train_split], indices[train_split:val_split], indices[val_split:]
 
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=SubsetRandomSampler(train_indices), 
-                                                    collate_fn=PadCollate(dataset.vocab_size_note, dataset.vocab_size_length))
+                                                    collate_fn=PadCollate(dataset.vocab_size))
     val_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=SubsetRandomSampler(val_indices), 
-                                                    collate_fn=PadCollate(dataset.vocab_size_note, dataset.vocab_size_length))
+                                                    collate_fn=PadCollate(dataset.vocab_size))
     test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=SubsetRandomSampler(test_indices), 
-                                                    collate_fn=PadCollate(dataset.vocab_size_note, dataset.vocab_size_length))
+                                                    collate_fn=PadCollate(dataset.vocab_size))
 
-    return train_loader, val_loader, test_loader, dataset.vocab_size_note, dataset.vocab_size_length
+    return train_loader, val_loader, test_loader, note2idx, idx2note, vocab_size
