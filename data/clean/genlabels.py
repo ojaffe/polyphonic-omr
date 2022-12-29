@@ -75,6 +75,8 @@ if __name__ == '__main__':
     rhythm_tokens.remove('')
 
     # Write vocab
+    os.makedirs(os.path.dirname(args.output_vocab), exist_ok=True)
+
     with open(os.path.join(args.output_vocab, "pitch.txt"), 'w') as f:
         f.write("\n".join(map(str, pitch_tokens)))
     with open(os.path.join(args.output_vocab, "rhythm.txt"), 'w') as f:

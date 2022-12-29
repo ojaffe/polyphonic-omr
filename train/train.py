@@ -121,11 +121,11 @@ def train(cfg_file: str) -> None:
 
             if (batch_idx+1) % decode_every == 0:
                 greedy_pitch_pred = greedy_decode(pitch_pred, pred_lengths)
-                print(greedy_pitch_pred)
-                print(pitch_seq)
+                writer.add_text('Train pitch pred', greedy_pitch_pred, global_step)
+                writer.add_text('Train pitch actual', pitch_seq, global_step)
 
-            if (batch_idx+1) % save_every == 0:
-                save_model()   
+            if save_every is not None and (batch_idx+1) % save_every == 0:
+                #save_model()   
                 model_num += 1
 
             # Accuracy
@@ -169,6 +169,8 @@ def train(cfg_file: str) -> None:
             val_loss,
             val_acc))
         
+        writer.add_scalar('Loss/val_pitch', pitch_loss, global_step)
+        writer.add_scalar('Loss/val_rhythm', rhythm_loss, global_step)
         writer.add_scalar('Loss/val', val_loss, global_step)
         writer.add_scalar('Acc/val', val_acc, global_step)
 

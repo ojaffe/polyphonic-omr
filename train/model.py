@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
-
 
 class BaselineModel(torch.nn.Module):
 
@@ -73,7 +71,7 @@ class BaselineModel(torch.nn.Module):
     def forward(self, x):
         width_reduction = self.width_reduction
         height_reduction = self.height_reduction
-        input_shape = x.shape # = batch, channels, height, width
+        input_shape = x.shape  # (batch, channels, height, width)
         
         # Conv blocks (4)
         x = self.b1(x)
@@ -82,7 +80,7 @@ class BaselineModel(torch.nn.Module):
         x = self.b4(x)
         
         # Prepare output of conv block for recurrent blocks
-        features = x.permute(3, 0, 2, 1)  # -> [width, batch, height, channels]
+        features = x.permute(3, 0, 2, 1)  # (width, batch, height, channels)
         feature_dim = self.model_cfg['conv_filter_n'][-1] * (self.img_height // height_reduction)
         feature_width = (2*2*2*input_shape[3]) // (width_reduction)
         stack = (int(feature_width), input_shape[0], int(feature_dim))
