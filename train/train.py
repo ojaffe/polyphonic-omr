@@ -105,8 +105,9 @@ def train(cfg_file: str) -> None:
 
             if (batch_idx+1) % decode_every == 0:
                 pred_tokens = greedy_decode(all_logits[0], note2idx, idx2note)
-                writer.add_text('Train pred', ' '.join([str(x) for x in pred_tokens]), global_step)
-                writer.add_text('Train actual', ' '.join([str(x) for x in tokens[0].tolist()]), global_step)
+                preds_and_actual = list(zip_longest(pred_tokens, tokens[0].tolist(), fillvalue=-1))
+                
+                writer.add_text('Train pred', ' '.join([str(x) for x in preds_and_actual]), global_step)
 
         # Val
         val_loss = 0

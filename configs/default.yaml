@@ -18,7 +18,7 @@ model:
   encoder_rnn_units: 512
   encoder_rnn_layers: 2
   decoder_hidden_size: 512
-  dropout: TODO
+  dropout: 0.5
 training:
   random_seed: 42
   log_dir: './train/log/'
