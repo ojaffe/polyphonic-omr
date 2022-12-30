@@ -1,16 +1,15 @@
 ﻿# Polyphonic-Omr
- PyTorch code for end-to-end Optical Music Recognition (OMR) on polyphonic scores. Based off [the following repository](https://github.com/sachindae/polyphonic-omr), which was a result from the paper:
-
- "An Empirical Evaluation of End-to-End Polyphonic Optical Music Recognition"
+ PyTorch code for end-to-end Optical Music Recognition (OMR) on polyphonic scores. 
  
  ## Released Items
  - [x] Dataset Creation
- - [ ] Model Training
+ - [x] Model Training
+ - [ ] More models!
  - [ ] Model Inference
  - [ ] Downloadable Weights
 
 ## Dataset Creation
-If you don't have a dataset already, we support the creation of it by scraping and processing MuseScore files, found [here](https://github.com/Xmader/musescore-dataset). This will convert scraped .musicxml files into an image sequence of symbolic labels, an example of which is "clef-G2 + keySig-FM + timeSig-4/4 + note-A4_quarter...
+If you don't have a dataset already, we support the creation of it by scraping and processing MuseScore files, found [here](https://github.com/Xmader/musescore-dataset). This will convert scraped .musicxml files into an image sequence of symbolic labels, an example of which is `clef-G2 + keySig-FM + timeSig-4/4 + note-A4_quarter...`
 
 Requirements:
 1. Make sure you have [MuseScore](https://musescore.org/en) installed and locate the Plugins folder for it
@@ -30,6 +29,8 @@ Then preprocess the files in ./data/clean/ with the following commands:
     - removenolabeldata.py
     - removenonpolyphonic.py 
     - removesparsesamples.py
+
+Credits to [the following repository](https://github.com/sachindae/polyphonic-omr), which was a result from the paper: `"An Empirical Evaluation of End-to-End Polyphonic Optical Music Recognition"`
 
 ## Training
 TODO
