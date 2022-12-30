@@ -24,11 +24,7 @@ Then preprocess the files in ./data/clean/ with the following commands:
 3. Run "Batch Convert" in MuseScore on the cleaned .musicxml files to .mscz
 4. Run "Batch Convert" in MuseScore on the new .mscz to .musicxml and .png
 5. Run genlabels.py to generate labels for the .musicxml files
-6. Run the following to clean the data, as needed:
-    - removetitleimgs.py
-    - removenolabeldata.py
-    - removenonpolyphonic.py 
-    - removesparsesamples.py
+6. Run clean.py with appropriate arguments to clean the data, as needed
 
 Credits to [the following repository](https://github.com/sachindae/polyphonic-omr), which was a result from the paper: `"An Empirical Evaluation of End-to-End Polyphonic Optical Music Recognition"`
 
